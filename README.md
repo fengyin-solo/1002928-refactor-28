@@ -76,3 +76,27 @@ npm run dev
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 统计口径（今日新增 / 待处理 / 异常量）
+
+三项指标只有一份实现，集中在 `backend/app/metrics.py`，任何页面不得各算一遍：
+
+- **今日新增**：明细行 `created_at` 为当天日期；存量数据按业务日期回填。
+- **待处理**：状态不在该模块终态集合里（业务尚未闭环）。
+- **异常量**：状态命中该模块异常状态集合。
+
+每个模块的状态序列、终态、异常状态在 `MODULE_SPECS` 里显式登记；
+行上的 `pending/abnormal` 只是统一口径投影出的缓存位，由 `metrics.apply_flags`
+在状态流转与存量重算时统一回写。
+
+- 首页 `GET /api/overview` 与明细页 `GET /api/<模块>/metrics` 同源，数字必然相等。
+- 明细页公共组件是 `frontend/src/components/ModulePage.vue`，模块文案集中在
+  `frontend/src/modules.ts`；20 个 `views/<模块>/index.vue` 只剩一行组件引用。
+- 口径调整后调用 `POST /api/admin/recalculate`，存量数据按新算法整体重算（幂等）。
+- 历史看板按版本冻结：`GET /api/overview/snapshots` 列版本，
+  `GET /api/overview/snapshots/{version}` 看当时那一版。当前是 `v2`，
+  `v1`（旧的「按行上标记位、新增=整表行数」口径）永久保留、不再变化。
+- 取数失败时前端 `fetchJson` 对网络错误 / 5xx / 429 自动重试（指数退避，默认 2 次），
+  仍失败则页面提供「重试」按钮；4xx 参数错误不重试。
+- 批次汇总 `POST /api/batches` 以 `batch_id` 为幂等键，同一批重复提交只落一次账，
+  台数不会叠成两份；计数一律按明细状态现算，不采信客户端自报数字。

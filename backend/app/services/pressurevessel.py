@@ -1,61 +1,15 @@
-"""压力容器业务规则：状态流转、字段校验与筛选口径都收在这里。"""
+"""压力容器业务服务：仅声明模块身份。
+
+状态序列、必填字段、动作映射、终态与异常状态统一登记在 app.metrics.MODULE_SPECS；
+列表/创建/流转/今日新增/待处理/异常量的实现全部在 app.services.base.ModuleService。
+"""
 from __future__ import annotations
 
-from typing import Any
-
-from app.store import store
+from app.services.base import ModuleService
 
 MODULE = "pressurevessel"
-REQUIRED_FIELDS = ["容器编号", "容器类别", "设计压力"]
-STATUS_ORDER = ["正常", "超压运行", "检验中", "已停用"]
-ACTION_RULES = {"降压运行": "超压运行", "安排检验": "检验中", "办理停用": "已停用"}
-NEGATIVE_ACTIONS = []
 
 
-class PressurevesselService:
-    def list_entries(
-        self,
-        *,
-        keyword: str | None = None,
-        status: str | None = None,
-        page: int = 1,
-        size: int = 20,
-    ) -> tuple[list[dict[str, Any]], int]:
-        rows = store.rows(MODULE)
-        if keyword:
-            rows = [row for row in rows if keyword in str(row.get("容器编号", ""))]
-        if status:
-            rows = [row for row in rows if row.get("status") == status]
-        total = len(rows)
-        start = max(page - 1, 0) * size
-        return rows[start:start + size], total
-
-    def get_entry(self, entry_id: int) -> dict[str, Any] | None:
-        return store.find(MODULE, entry_id)
-
-    def create_entry(self, values: dict[str, Any]) -> tuple[dict[str, Any] | None, list[str]]:
-        missing = [field for field in REQUIRED_FIELDS if not str(values.get(field) or "").strip()]
-        if missing:
-            return None, missing
-        rows = store.rows(MODULE)
-        entry = {"id": max((int(row.get("id", 0)) for row in rows), default=0) + 1}
-        entry.update({field: values.get(field) for field in REQUIRED_FIELDS})
-        entry["status"] = STATUS_ORDER[0]
-        entry["pending"] = True
-        entry["abnormal"] = False
-        rows.append(entry)
-        return entry, []
-
-    def run_action(self, entry_id: int, action: str) -> tuple[dict[str, Any] | None, str]:
-        entry = store.find(MODULE, entry_id)
-        if entry is None:
-            return None, f"压力容器 {entry_id} 不存在或已归档"
-        if action not in ACTION_RULES:
-            return None, f"动作「{action}」不属于压力容器可执行范围"
-        target = ACTION_RULES[action]
-        if target not in STATUS_ORDER:
-            return None, f"目标状态「{target}」不在允许的状态序列里"
-        entry["status"] = target
-        entry["pending"] = target != STATUS_ORDER[-1]
-        entry["abnormal"] = action in NEGATIVE_ACTIONS
-        return entry, f"压力容器已{action}"
+class PressurevesselService(ModuleService):
+    def __init__(self) -> None:
+        super().__init__(MODULE)

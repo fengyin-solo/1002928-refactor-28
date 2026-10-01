@@ -28,6 +28,66 @@ class EntryPayload(BaseModel):
     remark: str | None = None
 
 
+class ModuleMetrics(BaseModel):
+    """单模块三项指标：与首页 /api/overview 同一份口径算出来。"""
+
+    module: str
+    label: str
+    version: str
+    created: int
+    pending: int
+    abnormal: int
+
+
+class BatchEntry(BaseModel):
+    """批次汇总里的一条明细：能定位库存明细时以库存状态为准。"""
+
+    module: str
+    id: int | None = None
+    status: str | None = None
+    created_at: str | None = None
+    units: int = 1
+
+
+class BatchSubmit(BaseModel):
+    """一批明细提交汇总；batch_id 用作幂等键，重复提交不会重复计数。"""
+
+    batch_id: str
+    entries: list[BatchEntry] = Field(default_factory=list)
+    remark: str | None = None
+
+
+class BatchModuleResult(BaseModel):
+    name: str
+    created: int
+    pending: int
+    abnormal: int
+    units: int
+
+
+class BatchResult(BaseModel):
+    batch_id: str
+    version: str
+    as_of: str
+    deduplicated: bool
+    modules: list[BatchModuleResult]
+    totals: dict[str, int]
+
+
+class SnapshotOverview(BaseModel):
+    cards: list[dict[str, Any]]
+    modules: list[dict[str, Any]]
+
+
+class SnapshotResult(BaseModel):
+    """历史看板：某一版口径冻结下来的概览，不随后续口径调整改变。"""
+
+    version: str
+    label: str
+    as_of: str
+    overview: SnapshotOverview
+
+
 
 class RegisterEntry(BaseModel):
     """设备登记明细结构。"""
