@@ -30,9 +30,3 @@ for module in ROUTERS:
 def health() -> dict[str, object]:
     """健康检查：确认服务已经监听、示例数据已经就绪。"""
     return {"ok": True, "app": settings.app_name, "modules": len(store.module_names())}
-
-
-@app.get("/api/overview")
-def overview() -> dict[str, object]:
-    """运营概览：把各业务模块的待处理量汇总成看板卡片。"""
-    return store.overview()

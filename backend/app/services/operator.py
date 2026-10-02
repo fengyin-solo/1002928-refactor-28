@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.metrics import stamp_created
 from app.store import store
 
 MODULE = "operator"
@@ -43,6 +44,7 @@ class OperatorService:
         entry["status"] = STATUS_ORDER[0]
         entry["pending"] = True
         entry["abnormal"] = False
+        stamp_created(entry)
         rows.append(entry)
         return entry, []
 

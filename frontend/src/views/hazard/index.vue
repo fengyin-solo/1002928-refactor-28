@@ -65,7 +65,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-import { request } from '@/api/client'
+import { fetchJson, request } from '@/api/client'
 
 type Row = Record<string, string | number | null>
 
@@ -73,7 +73,8 @@ const ENDPOINT = '/api/hazard'
 const columns = ["隐患编号", "所在设备", "隐患类别", "隐患等级", "发现日期", "整改措施", "整改期限", "隐患状态"]
 const actions = ["安排整改", "开始整改", "验收消除"]
 const statuses = ["待整改", "整改中", "待验收", "已消除"]
-const stats = [{"label": "待整改隐患", "value": 0}, {"label": "整改中隐患", "value": 0}, {"label": "已消除隐患", "value": 0}]
+const STATS_ENDPOINT = ENDPOINT.replace('/api/', '/api/overview/modules/')
+const stats = ref<{ label: string; value: number }[]>([])
 
 const rows = ref<Row[]>([])
 const total = ref(0)
@@ -110,6 +111,15 @@ async function runAction(action: string, row: Row) {
   }
 }
 
+async function loadStats() {
+  const payload = await fetchJson<{ created: number; pending: number; abnormal: number }>(STATS_ENDPOINT)
+  stats.value = [
+    { label: '今日新增', value: payload.created },
+    { label: '待处理', value: payload.pending },
+    { label: '异常量', value: payload.abnormal },
+  ]
+}
+
 async function reload() {
   errorMessage.value = ''
   const query = new URLSearchParams(filters.value as Record<string, string>).toString()
@@ -121,6 +131,7 @@ async function reload() {
     const payload = await response.json()
     rows.value = payload.items ?? []
     total.value = payload.total ?? rows.value.length
+    await loadStats()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '隐患排查列表读取失败'
   }

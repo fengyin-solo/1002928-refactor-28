@@ -65,7 +65,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-import { request } from '@/api/client'
+import { fetchJson, request } from '@/api/client'
 
 type Row = Record<string, string | number | null>
 
@@ -73,7 +73,8 @@ const ENDPOINT = '/api/contract'
 const columns = ["合同编号", "签约单位", "维保范围", "合同金额", "签约日期", "到期日期", "是否续签", "合同状态"]
 const actions = ["签订合同", "到期续签", "终止合同"]
 const statuses = ["待签约", "执行中", "即将到期", "已终止"]
-const stats = [{"label": "执行中合同", "value": 0}, {"label": "即将到期合同", "value": 0}, {"label": "已终止合同", "value": 0}]
+const STATS_ENDPOINT = ENDPOINT.replace('/api/', '/api/overview/modules/')
+const stats = ref<{ label: string; value: number }[]>([])
 
 const rows = ref<Row[]>([])
 const total = ref(0)
@@ -110,6 +111,15 @@ async function runAction(action: string, row: Row) {
   }
 }
 
+async function loadStats() {
+  const payload = await fetchJson<{ created: number; pending: number; abnormal: number }>(STATS_ENDPOINT)
+  stats.value = [
+    { label: '今日新增', value: payload.created },
+    { label: '待处理', value: payload.pending },
+    { label: '异常量', value: payload.abnormal },
+  ]
+}
+
 async function reload() {
   errorMessage.value = ''
   const query = new URLSearchParams(filters.value as Record<string, string>).toString()
@@ -121,6 +131,7 @@ async function reload() {
     const payload = await response.json()
     rows.value = payload.items ?? []
     total.value = payload.total ?? rows.value.length
+    await loadStats()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '维保合同列表读取失败'
   }

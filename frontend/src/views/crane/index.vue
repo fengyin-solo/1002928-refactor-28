@@ -65,7 +65,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-import { request } from '@/api/client'
+import { fetchJson, request } from '@/api/client'
 
 type Row = Record<string, string | number | null>
 
@@ -73,7 +73,8 @@ const ENDPOINT = '/api/crane'
 const columns = ["起重机编号", "起重机类型", "额定起重量", "跨度", "工作级别", "操作人员", "上次年检", "起重机状态"]
 const actions = ["降载运行", "安排检验", "办理停用"]
 const statuses = ["正常", "超载运行", "检验中", "已停用"]
-const stats = [{"label": "正常起重机", "value": 0}, {"label": "超载起重机", "value": 0}, {"label": "检验起重机", "value": 0}]
+const STATS_ENDPOINT = ENDPOINT.replace('/api/', '/api/overview/modules/')
+const stats = ref<{ label: string; value: number }[]>([])
 
 const rows = ref<Row[]>([])
 const total = ref(0)
@@ -110,6 +111,15 @@ async function runAction(action: string, row: Row) {
   }
 }
 
+async function loadStats() {
+  const payload = await fetchJson<{ created: number; pending: number; abnormal: number }>(STATS_ENDPOINT)
+  stats.value = [
+    { label: '今日新增', value: payload.created },
+    { label: '待处理', value: payload.pending },
+    { label: '异常量', value: payload.abnormal },
+  ]
+}
+
 async function reload() {
   errorMessage.value = ''
   const query = new URLSearchParams(filters.value as Record<string, string>).toString()
@@ -121,6 +131,7 @@ async function reload() {
     const payload = await response.json()
     rows.value = payload.items ?? []
     total.value = payload.total ?? rows.value.length
+    await loadStats()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '起重机械列表读取失败'
   }

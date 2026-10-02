@@ -76,3 +76,11 @@ npm run dev
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+- 运营概览的统计口径（今日新增、待处理、异常量）只有一份实现：
+  `backend/app/services/metrics.py`。首页卡片、各模块明细页与汇总重算都从这里取数，
+  首页与明细必然给出同一个数；卡片与汇总表字段名固定，调整口径时不得改名。
+- 口径带版本号：调整口径时把 `METRICS_VERSION` 加一，然后
+  `POST /api/overview/recompute` 把存量明细按新口径重算一遍；每次重算留一档快照，
+  `GET /api/overview/snapshots` 查看历史看板，各档按当时那一版口径保留。
+- 重算是整体替换而不是累加，并支持 `batch_id` 去重：同一批明细重复提交不会把台数
+  叠成两份，取数失败后可安全重试。模块明细指标走 `GET /api/overview/modules/<模块>`。
